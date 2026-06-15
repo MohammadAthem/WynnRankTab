@@ -1,0 +1,6 @@
+name: WynnRankTab
+version: '1.0-SNAPSHOT'
+
+main: com.schpeeniii.wynnranktab.WynnRankTab
+api-version: '1.21.11'
+load: POSTWORLD

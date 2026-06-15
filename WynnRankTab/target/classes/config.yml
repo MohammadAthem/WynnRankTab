@@ -1,0 +1,43 @@
+
+#   %prefix% : the player's Wynncraft guild tag
+#   %rank%   : the rank, already coloured/renamed per the "ranks" section below
+#   %player% : the player's username
+format: "&8[&b%prefix%&8] %rank% &f%player%"
+
+# Layout for players with no Wynncraft guild (or not found on Wynncraft at all).
+#   %player% : username
+no-guild-format: "&7%player%"
+
+# true  : guildless players get the no-guild-format above.
+# false : leave their tab name untouched.
+show-guildless: true
+
+# How to identify the player to the Wynncraft API (UUID / USERNAME):
+lookup-by: UUID
+
+# How often (seconds) to re-pull each online player's guild data. Minimum 60.
+refresh-interval: 600
+
+# Optional Wynncraft API token to raise rate limits.
+api-token: ""
+
+# Map the six Wynncraft guild ranks to a display name + colour.
+ranks:
+  OWNER:
+    name: "OWNER"
+    color: "&6"
+  CHIEF:
+    name: "CHIEF"
+    color: "&c"
+  STRATEGIST:
+    name: "STRATEGIST"
+    color: "&a"
+  CAPTAIN:
+    name: "CAPTAIN"
+    color: "&e"
+  RECRUITER:
+    name: "RECRUITER"
+    color: "&b"
+  RECRUIT:
+    name: "RECRUIT"
+    color: "&7"
