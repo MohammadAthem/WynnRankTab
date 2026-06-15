@@ -1,2 +1,2 @@
 # WynnRankTab
-First stab at a Minecraft plugin for my Wynncraft guild.
+First stab at a Minecraft plugin for my goated Wynncraft guild.
