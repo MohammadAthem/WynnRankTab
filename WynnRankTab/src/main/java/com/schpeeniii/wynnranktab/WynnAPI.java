@@ -1,5 +1,6 @@
 package com.schpeeniii.wynnranktab;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -26,9 +27,13 @@ public class WynnAPI {
 
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 
+    private final HttpClient http;
+    private final Gson gson;
     private final String token;
 
-    public WynnAPI(String token) {
+    public WynnAPI(HttpClient http, Gson gson, String token) {
+        this.http = http;
+        this.gson = gson;
         this.token = token == null ? "" : token.trim();
     }
 

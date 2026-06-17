@@ -1,5 +1,7 @@
 package com.schpeeniii.wynnranktab;
 
+import com.google.gson.Gson;
+import java.net.http.HttpClient;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -16,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class WynnRankTab extends JavaPlugin implements Listener {
 
     private WynnAPI api;
+    private GuildColor guildColors;
     private final ConcurrentHashMap<UUID, Long> lastFetch = new ConcurrentHashMap<>();
 
     private String format;
@@ -28,7 +31,15 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
     public void onEnable() {
         saveDefaultConfig();
         loadSettings();
-        api = new WynnAPI(getConfig().getString("api-token", ""));
+
+        HttpClient httpClient = HttpClient.newHttpClient();
+        Gson gson = new Gson();
+
+        api = new WynnAPI(httpClient, gson, getConfig().getString("api-token", ""));
+        guildColors = new GuildColor(httpClient, gson, getLogger());
+
+        getServer().getScheduler().runTaskTimerAsynchronously(
+                this, guildColors::refresh, 0L, 20L * 60 * 30);
 
         getServer().getPluginManager().registerEvents(this, this);
 
@@ -104,11 +115,24 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
             }
         }
 
+        String hex = guildColors.colorFor(guild.prefix()).orElse(null);
+        String prefixField = (hex != null) ? hexColor(hex) + guild.prefix().toUpperCase(Locale.ROOT) : guild.prefix().toUpperCase(Locale.ROOT);
+        String rankField = (hex != null) ? hexColor(hex) + guild.rank() : guild.rank();
+        String nameField = (hex != null) ? hexColor(hex) + playerName : playerName;
+
         String out = format
-                .replace("%prefix%", guild.prefix())
-                .replace("%rank%", rankColor + rankName)
-                .replace("%player%", playerName);
+                .replace("%prefix%", prefixField)
+                .replace("%rank%", rankField)
+                .replace("%player%", nameField);
         return color(out);
+    }
+
+    private String hexColor(String hex){
+        try{
+            return net.md_5.bungee.api.ChatColor.of(hex).toString();
+        } catch (IllegalArgumentException ex) {
+            return "";
+        }
     }
 
     private String color(String s) {
