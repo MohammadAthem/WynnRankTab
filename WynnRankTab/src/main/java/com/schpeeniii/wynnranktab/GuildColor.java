@@ -28,6 +28,7 @@ public class GuildColor {
     private final Logger logger;
 
     private volatile Map<String, String> colorsByPrefix = Map.of();
+    private volatile Map<String, String> displayByPrefix = Map.of();
 
     public GuildColor(HttpClient http, Gson gson, Logger logger){
         this.http = http;
@@ -39,6 +40,12 @@ public class GuildColor {
         if (prefix == null) return Optional.empty();
         return Optional.ofNullable(colorsByPrefix.get(prefix.toUpperCase(Locale.ROOT)));
     }
+
+    public Optional<String> displayPrefix(String prefix) { //useless code, too lazy to take out
+        if (prefix == null) return Optional.empty();
+        return Optional.ofNullable(displayByPrefix.get(prefix.toUpperCase(Locale.ROOT)));
+    }
+
 
     public void refresh() {
         try{
@@ -55,13 +62,17 @@ public class GuildColor {
             Type type = new TypeToken<List<GuildEntry>>() {}.getType();
             List<GuildEntry> raw = gson.fromJson(res.body(), type);
 
-            Map<String, String> next = new HashMap<>();
+            Map<String, String> nextColors = new HashMap<>();
+            Map<String, String> nextDisplay = new HashMap<>();
             for (GuildEntry g : raw) {
                 if (g == null || g.prefix() == null || g.color() == null || g.color().isBlank()) continue;
-                next.put(g.prefix().toUpperCase(Locale.ROOT), g.color());
+                String key = g.prefix().toUpperCase(Locale.ROOT);
+                nextColors.put(key, g.color());
+                nextDisplay.put(key, g.prefix());
             }
 
-            colorsByPrefix = Map.copyOf(next);
+            colorsByPrefix  = Map.copyOf(nextColors);
+            displayByPrefix = Map.copyOf(nextDisplay);
             logger.info("Loaded " + colorsByPrefix.size());
 
         } catch (Exception e){

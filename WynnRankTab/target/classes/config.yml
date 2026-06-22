@@ -2,7 +2,7 @@
 #   %prefix% : the player's Wynncraft guild tag
 #   %rank%   : the rank, already coloured/renamed per the "ranks" section below
 #   %player% : the player's username
-format: "&8[&b%prefix%&8] %rank% &f%player%"
+format: "&f%player%"
 
 # Layout for players with no Wynncraft guild (or not found on Wynncraft at all).
 #   %player% : username

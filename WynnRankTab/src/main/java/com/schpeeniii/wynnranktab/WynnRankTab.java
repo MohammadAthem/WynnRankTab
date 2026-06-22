@@ -1,7 +1,10 @@
 package com.schpeeniii.wynnranktab;
 
 import com.google.gson.Gson;
+
 import java.net.http.HttpClient;
+
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -10,9 +13,15 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.key.Key;
 
 
 public final class WynnRankTab extends JavaPlugin implements Listener {
@@ -58,12 +67,12 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
                 + ", refresh every " + (refreshMillis / 1000) + "s.");
     }
 
-    public void loadSettings(){
-        format = getConfig().getString("format", "&8[&b%prefix%&8] %rank% &f%player%");
+    public void loadSettings() {
+        format = getConfig().getString("format", "&f%player%");
         noGuildFormat = getConfig().getString("no-guild-format", "&7%player%");
         showGuildless = getConfig().getBoolean("show-guildless", true);
-        lookUpByUUID   = !"USERNAME".equalsIgnoreCase(getConfig().getString("lookup-by", "UUID"));
-        long seconds   = Math.max(60L, getConfig().getLong("refresh-interval", 600L));
+        lookUpByUUID = !"USERNAME".equalsIgnoreCase(getConfig().getString("lookup-by", "UUID"));
+        long seconds = Math.max(60L, getConfig().getLong("refresh-interval", 600L));
         refreshMillis = seconds * 1000L;
     }
 
@@ -81,10 +90,22 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
         Runnable work = () -> {
             WynnAPI.Guild guild = api.fetch(identifier);
             final String listName = render(name, guild);
+            final Component prefixPill = buildPrefixPill(guild);
+            final Component rankPill = buildRankPill(guild);
+
             Bukkit.getScheduler().runTask(this, () -> {
                 Player online = Bukkit.getPlayer(uuid);
                 if (online != null && online.isOnline()) {
-                    online.setPlayerListName(listName != null ? listName : online.getName());
+                    Component finalName = (listName != null)
+                            ? LegacyComponentSerializer.legacySection().deserialize(listName)
+                            : Component.text(online.getName());
+                    if (rankPill != null) {
+                        finalName = Component.empty().append(rankPill).append(Component.space()).append(finalName);
+                    }
+                    if (prefixPill != null) {
+                        finalName = Component.empty().append(prefixPill).append(Component.space()).append(finalName);
+                    }
+                    online.playerListName(finalName);
                 }
             });
         };
@@ -116,23 +137,118 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
         }
 
         String hex = guildColors.colorFor(guild.prefix()).orElse(null);
-        String prefixField = (hex != null) ? hexColor(hex) + guild.prefix().toUpperCase(Locale.ROOT) : guild.prefix().toUpperCase(Locale.ROOT);
-        String rankField = (hex != null) ? hexColor(hex) + guild.rank() : guild.rank();
         String nameField = (hex != null) ? hexColor(hex) + playerName : playerName;
 
         String out = format
-                .replace("%prefix%", prefixField)
-                .replace("%rank%", rankField)
                 .replace("%player%", nameField);
         return color(out);
     }
 
-    private String hexColor(String hex){
-        try{
+    private String hexColor(String hex) {
+        try {
             return net.md_5.bungee.api.ChatColor.of(hex).toString();
         } catch (IllegalArgumentException ex) {
             return "";
         }
+    }
+
+    private Component buildPrefixPill(WynnAPI.Guild guild) {
+        String prefix = "";
+        TextColor color = TextColor.fromHexString("#AAAAAA");
+        if (!guild.hasGuild()) {
+            prefix = "NONE";
+        } else {
+            prefix = guild.prefix();
+            String hex = guildColors.colorFor(prefix).orElse(null);
+            if (hex == null) return null;
+            color = TextColor.fromHexString(hex);
+            if (color == null) return null;
+        }
+
+        record PrefixPill(char glyph, int w) {}
+
+        PrefixPill pill = switch (prefix.length()) {
+            case 2 -> new PrefixPill('\uE010', 18);
+            case 4 -> new PrefixPill('\uE012', 30);
+            default -> new PrefixPill('\uE011', 24);
+        };
+
+        String display = prefix.toUpperCase(Locale.ROOT);
+        return buildPill(display, pill.glyph(), pill.w(), color);
+    }
+
+    private Component buildRankPill(WynnAPI.Guild guild) {
+        if(!guild.hasGuild()) return null;
+        String rank = guild.rank();
+        String hex = guildColors.colorFor(guild.prefix()).orElse(null);
+        if(hex == null) return null;
+        TextColor color = TextColor.fromHexString(hex);
+        if(color == null) return null;
+
+        record RankPill(char glyph, int w) {}
+
+        RankPill pill = switch (rank.toUpperCase(Locale.ROOT)) {
+            case "OWNER", "CHIEF" -> new RankPill('\uE020', 36);
+            case "CAPTAIN", "RECRUIT" -> new RankPill('\uE021', 48);
+            case "RECRUITER"  -> new RankPill('\uE022', 60);
+            case "STRATEGIST" -> new RankPill('\uE023', 66);
+            default           -> null;
+        };
+
+        if (pill == null) return null;
+        String display = rank.toUpperCase(Locale.ROOT);
+        return buildPill(display, pill.glyph(), pill.w(), color);
+    }
+
+    private Component buildPill(String text, char glyph, int W, TextColor color) {
+
+        int T = textWidth(text);
+        int leftPad = Math.max(0, (W - T) / 2);
+        int rightPad = W - leftPad - T;
+
+        Key tab = Key.key("wynntab", "tab");
+
+        return Component.empty()
+                .append(Component.text(glyph).font(tab).color(color))
+                .append(Component.text(space(-W)).font(tab))
+                .append(Component.text(space(leftPad)).font(tab))
+                .append(Component.text(text).font(Key.key("wynntab", "small")).color(NamedTextColor.WHITE))
+                .append(Component.text(space(rightPad)).font(tab));
+    }
+
+
+    private static int charWidth(char c) {
+        return switch (c) {
+            case 'i' -> 2;
+            case 'l' -> 3;
+            case 'I', 't' -> 4;
+            case 'f', 'k' -> 5;
+            default -> 6;
+        };
+    }
+
+    private int textWidth(String s) {
+        int w = 0;
+        for (char c : s.toCharArray()) w += (c == 'I' || c == '1') ? 4 : 6;
+        return w;
+    }
+
+    private static final char[] NEG = {'\uE100', '\uE101', '\uE102', '\uE103', '\uE104', '\uE105'};
+    private static final char[] POS = {'\uE110', '\uE111', '\uE112', '\uE113', '\uE114', '\uE115'};
+
+    private String space(int px) {
+        if (px == 0) return "";
+        char[] set = px < 0 ? NEG : POS;
+        int n = Math.abs(px);
+        StringBuilder sb = new StringBuilder();
+        for (int i = set.length - 1; i >= 0; i--) {
+            int val = 1 << i;
+            while (n >= val) {
+                sb.append(set[i]);
+                n -= val;
+            }
+        }
+        return sb.toString();
     }
 
     private String color(String s) {
