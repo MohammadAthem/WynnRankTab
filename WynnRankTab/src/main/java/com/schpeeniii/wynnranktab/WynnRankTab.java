@@ -36,6 +36,8 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
     private boolean lookUpByUUID;
     private long refreshMillis;
 
+    private static final int PAD = 3;
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -165,16 +167,7 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
             if (color == null) return null;
         }
 
-        record PrefixPill(char glyph, int w) {}
-
-        PrefixPill pill = switch (prefix.length()) {
-            case 2 -> new PrefixPill('\uE010', 18);
-            case 4 -> new PrefixPill('\uE012', 30);
-            default -> new PrefixPill('\uE011', 24);
-        };
-
-        String display = prefix.toUpperCase(Locale.ROOT);
-        return buildPill(display, pill.glyph(), pill.w(), color);
+        return buildPill(prefix.toUpperCase(Locale.ROOT), color);
     }
 
     private Component buildRankPill(WynnAPI.Guild guild) {
@@ -185,35 +178,44 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
         TextColor color = TextColor.fromHexString(hex);
         if(color == null) return null;
 
-        record RankPill(char glyph, int w) {}
-
-        RankPill pill = switch (rank.toUpperCase(Locale.ROOT)) {
-            case "OWNER", "CHIEF" -> new RankPill('\uE020', 36);
-            case "CAPTAIN", "RECRUIT" -> new RankPill('\uE021', 48);
-            case "RECRUITER"  -> new RankPill('\uE022', 60);
-            case "STRATEGIST" -> new RankPill('\uE023', 66);
-            default           -> null;
-        };
-
-        if (pill == null) return null;
-        String display = rank.toUpperCase(Locale.ROOT);
-        return buildPill(display, pill.glyph(), pill.w(), color);
+        return buildPill(rank, color);
     }
 
-    private Component buildPill(String text, char glyph, int W, TextColor color) {
-
-        int T = textWidth(text);
-        int leftPad = Math.max(0, (W - T) / 2);
-        int rightPad = W - leftPad - T;
-
+    private Component buildPill(String text, TextColor color) {
+        int T   = textWidth(text);
+        int ink = T - 1;
+        int W   = ink + 2 * PAD;
+        int leftPad  = PAD;
+        int rightPad = PAD - 1;
         Key tab = Key.key("wynntab", "tab");
 
         return Component.empty()
-                .append(Component.text(glyph).font(tab).color(color))
+                .append(pillBg(W, color))
                 .append(Component.text(space(-W)).font(tab))
                 .append(Component.text(space(leftPad)).font(tab))
                 .append(Component.text(text).font(Key.key("wynntab", "small")).color(NamedTextColor.WHITE))
                 .append(Component.text(space(rightPad)).font(tab));
+    }
+
+    private Component slice(char g, TextColor color) {
+        Key tab = Key.key("wynntab", "tab");
+        return Component.empty()
+                .append(Component.text(g).font(tab).color(color))
+                .append(Component.text(space(-1)).font(tab));
+    }
+
+    private Component pillBg(int W, TextColor color) {
+        int inner = W - 6;
+        Component bg = slice('\uE030', color); //left shi
+        int[] sizes  = {32, 16, 8, 4, 2, 1};
+        char[] glyphs = {'\uE037','\uE036','\uE035','\uE034','\uE033','\uE032'};
+        for (int i = 0; i < sizes.length; i++) {
+            while (inner >= sizes[i]) {
+                bg = bg.append(slice(glyphs[i], color));
+                inner -= sizes[i];
+            }
+        }
+        return bg.append(slice('\uE031', color)); //right shi
     }
 
 
