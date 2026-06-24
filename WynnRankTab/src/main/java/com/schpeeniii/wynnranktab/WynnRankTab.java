@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 
 import java.net.http.HttpClient;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -12,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
@@ -37,6 +39,8 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
     private long refreshMillis;
 
     private static final int PAD = 3;
+
+    private final ConcurrentHashMap<UUID, WynnAPI.Guild> guildCache = new ConcurrentHashMap<>();
 
     @Override
     public void onEnable() {
@@ -83,6 +87,11 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
         Bukkit.getScheduler().runTaskLaterAsynchronously(this, () -> refresh(e.getPlayer()), 20L);
     }
 
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        guildCache.remove(event.getPlayer().getUniqueId());
+    }
+
     private void refresh(Player player) {
         final UUID uuid = player.getUniqueId();
         final String name = player.getName();
@@ -91,6 +100,7 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
 
         Runnable work = () -> {
             WynnAPI.Guild guild = api.fetch(identifier);
+            guildCache.put(uuid, guild);
             final String listName = render(name, guild);
             final Component prefixPill = buildPrefixPill(guild);
             final Component rankPill = buildRankPill(guild);
@@ -218,17 +228,6 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
         return bg.append(slice('\uE031', color)); //right shi
     }
 
-
-    private static int charWidth(char c) {
-        return switch (c) {
-            case 'i' -> 2;
-            case 'l' -> 3;
-            case 'I', 't' -> 4;
-            case 'f', 'k' -> 5;
-            default -> 6;
-        };
-    }
-
     private int textWidth(String s) {
         int w = 0;
         for (char c : s.toCharArray()) w += (c == 'I' || c == '1') ? 4 : 6;
@@ -255,5 +254,22 @@ public final class WynnRankTab extends JavaPlugin implements Listener {
 
     private String color(String s) {
         return ChatColor.translateAlternateColorCodes('&', s);
+    }
+
+    @EventHandler
+    public void onChat(AsyncChatEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        WynnAPI.Guild g = guildCache.get(uuid);
+        final WynnAPI.Guild guild = (g != null) ? g : WynnAPI.Guild.none();
+
+        final Component prefix = buildPrefixPill(guild);
+        final Component rank   = buildRankPill(guild);
+
+        event.renderer((source, displayName, message, viewer) -> {
+            Component line = Component.empty();
+            if (prefix != null) line = line.append(prefix).append(Component.space());
+            if (rank   != null) line = line.append(rank).append(Component.space());
+            return line.append(displayName).append(Component.text(": ")).append(message);
+        });
     }
 }

@@ -41,12 +41,6 @@ public class GuildColor {
         return Optional.ofNullable(colorsByPrefix.get(prefix.toUpperCase(Locale.ROOT)));
     }
 
-    public Optional<String> displayPrefix(String prefix) { //useless code, too lazy to take out
-        if (prefix == null) return Optional.empty();
-        return Optional.ofNullable(displayByPrefix.get(prefix.toUpperCase(Locale.ROOT)));
-    }
-
-
     public void refresh() {
         try{
             HttpRequest req = HttpRequest.newBuilder(URI.create(URL)).timeout(Duration.ofSeconds(10))
